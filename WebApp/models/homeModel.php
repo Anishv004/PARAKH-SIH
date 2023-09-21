@@ -14,14 +14,13 @@ class homeModel
         $stmt = $this->db->prepare("INSERT IGNORE INTO Qn_bank (question,exp,cop,opa,opb,opc,opd,subject_name,id,diff_score,correct,total) VALUES (?,?, ?, ?, ?, ?, ?, ?, ?,?,?,?)");
         $firstRow = true;
 
-        $diff = 50;
         $zero = 0;
         while (($data = fgetcsv($handle, 9999, ",")) !== false) {
           if ($firstRow) {
             $firstRow = false;
             continue;
           }
-
+          $diff = (rand(3500, 7500) / 100);
 
           // Bind parameters and execute the prepared statement
           $stmt->bindParam(1, $data[0]);
@@ -89,7 +88,13 @@ class homeModel
     if ($qn_num < 5) {
       // Prepare input data for prediction (as an associative array)
       // $input_data = ['feature1' => 0.2, 'feature2' => 0.3, 'feature3' => 0.5, 'feature4' => 1]; 
-      $input_data_json = json_encode($userData);
+      $input_data['Difficulty']=$userData['Difficulty']/100.0;
+      $input_data['Malpractice_score']=$userData['Malpractice_score']/100.0;
+      $input_data['Time_Spent']=$userData['Time_Spent']/100.0;
+      $input_data['Result']=$userData['Result'];
+
+      
+      $input_data_json = json_encode($input_data);
 
       $command = 'python predict.py \'' . $input_data_json . '\'';
       $diff = exec($command);
