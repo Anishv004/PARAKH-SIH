@@ -54,18 +54,65 @@ class homeModel
     }
   }
 
-  public function fetchQuestion($qn_num)
+  public function fetchQnfromDiff($diff)
   {
-    $sql = "SELECT * FROM Qn_bank ORDER BY RAND() LIMIT 1";
-    $temp = $this->db->prepare($sql);
+    $query = "SELECT * FROM Qn_bank
+    ORDER BY ABS(diff_score - :diffscore) LIMIT 1;";
+
+    $temp = $this->db->prepare($query);
+    $temp->bindParam(':diffscore', $diff, PDO::PARAM_STR);
     $temp->execute();
+    $qa = $temp->fetchall(PDO::FETCH_ASSOC);
+
+    return $qa;
+  }
+
+  public function fetchFirstQuestion()
+  {
+    $query = "SELECT * FROM userhistory ORDER BY created_at DESC LIMIT 1";
+    $temp = $this->db->prepare($query);
+    $temp->execute();
+    $prev_details = $temp->fetchall(PDO::FETCH_ASSOC);
+
+    if(empty($prev_details)){
+      $diff=50.0;
+    } else{
+      $diff = $prev_details[0]['average_difficulty'];
+    }
+    $qa = $this->fetchQnfromDiff($diff);
+
+    return $qa;
+  }
+
+  public function fetchQuestion($qn_num, $userData)
+  {
     if ($qn_num < 5) {
-      $qa = $temp->fetchall(PDO::FETCH_ASSOC);
+      // Prepare input data for prediction (as an associative array)
+      // $input_data = ['feature1' => 0.2, 'feature2' => 0.3, 'feature3' => 0.5, 'feature4' => 1]; 
+      $input_data_json = json_encode($userData);
+
+      $command = 'python predict.py \'' . $input_data_json . '\'';
+      $diff = exec($command);
+
+      $qa = $this->fetchQnfromDiff($diff);
+
       return $qa;
     }
-
     return null;
   }
+
+  // public function fetchQuestion($qn_num)
+  // {
+  //   $sql = "SELECT * FROM Qn_bank ORDER BY RAND() LIMIT 1";
+  //   $temp = $this->db->prepare($sql);
+  //   $temp->execute();
+  //   if ($qn_num <= 5) {
+  //     $qa = $temp->fetchall(PDO::FETCH_ASSOC);
+  //     return $qa;
+  //   }
+
+  //   return null;
+  // }
 
   public function validateUserAns($qn_id, $user_ans)
   {
@@ -83,13 +130,43 @@ class homeModel
     }
   }
 
+  public function fetchMalpScore($starttime, $endtime)
+  {
+    $query1 = "SELECT COUNT(*) AS count FROM malpractice WHERE curr_status = 1 AND time_stamp > :start_time AND time_stamp < :end_time";
+    $stmt = $this->db->prepare($query1);
+    $stmt->bindParam(':start_time', $starttime, PDO::PARAM_STR);
+    $stmt->bindParam(':end_time', $endtime, PDO::PARAM_STR);
+    $stmt->execute();
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    $count = $result['count'];
+    $stmt->closeCursor();
+
+    $query2 = "SELECT COUNT(*) AS total FROM malpractice";
+    $totalStmt = $this->db->query($query2);
+    $totalResult = $totalStmt->fetch(PDO::FETCH_ASSOC);
+    $totalOccurrences = $totalResult['total'];
+
+    if ($totalOccurrences > 0) {
+      $percentage = ($count / $totalOccurrences) * 100;
+    } else {
+      $percentage = 0;
+    }
+
+    $query = "DELETE FROM malpractice";
+    $temp = $this->db->prepare($query);
+    $temp->execute();
+
+    return $percentage;
+  }
+
   public function updatePerc($qn_id, $res)
   {
     if ($res == 1) {
       $query = "UPDATE Qn_bank SET correct=correct+1, total=total+1,
       diff_score=(1-correct/total)*100 WHERE id=:qnid";
     } else {
-      $query = "UPDATE Qn_bank SET total=total+1, diff_score=(1-correct/total)
+      $query = "UPDATE Qn_bank SET total=total+1, diff_score=(1-correct/total)*100
       WHERE id=:qnid";
     }
     $temp = $this->db->prepare($query);
@@ -110,7 +187,7 @@ class homeModel
     return $diff_score;
   }
 
-  public function temp($qn_id, $res, $diff)
+  public function tempScoresTable($qn_id, $res, $diff)
   {
     $sql = "INSERT INTO temp (id, correct, diff_score) VALUES (:qn_id, :res, :diff)";
 

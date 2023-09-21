@@ -27,7 +27,8 @@ class homeController
             }
             if (isset($_POST['test_start'])) {
                 $qn_num = 1;
-                $qa = $this->model->fetchQuestion($qn_num);
+                // Hvae to modify
+                $qa = $this->model->fetchFirstQuestion();
                 if ($qa == null) {
                     include('views/finish_test.php');
                 } else {
@@ -48,7 +49,12 @@ class homeController
                 $page_load_time = $_POST['page_load_time'];
 
                 $userData = array();
-                // Malpractice score yet to be added
+
+                $starttime = date('Y-m-d H:i:s'); //Temporarily
+                $endtime = date('Y-m-d H:i:s', $page_load_time);
+
+                $userData['Malpractice_score']=$this->model->fetchMalpScore($starttime,$endtime);
+
                 $userData['Difficulty'] = $this->model->fetchDiff($qn_id);
 
                 // Calculate the time spent on the page
@@ -62,14 +68,14 @@ class homeController
                 // Update Percentile
                 $this->model->updatePerc($qn_id, $res);
 
-                $this->model->temp($qn_id, $res, $userData['Difficulty']);
+                $this->model->tempScoresTable($qn_id, $res, $userData['Difficulty']);
 
                 // Update qn num
                 $qn_num = $_POST['qn_num'];
                 $qn_num++;
 
                 // fetch the next qn
-                $qa = $this->model->fetchQuestion($qn_num);
+                $qa = $this->model->fetchQuestion($qn_num,$userData);
                 if ($qa == null) {
                     // Calculate total result and average difficulty
                     $result = $this->model->getScoreAndAverage();

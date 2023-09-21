@@ -17,16 +17,20 @@ CREATE TABLE IF NOT EXISTS Qn_bank(
     total int,
     diff_score float
 );
+CREATE TABLE IF NOT EXISTS malpractice(
+    time_stamp datetime,
+    curr_status int
+);
 ";
 $db->exec($createTableQuery);
 
 $createTableQuery2 = "
-DROP TABLE IF EXISTS temp;
+DELETE FROM malpractice;
 CREATE TABLE IF NOT EXISTS temp(
     id text,
     correct int,
     diff_score float
-);
+);DELETE FROM temp;
 ";
 $db->exec($createTableQuery2);
 
