@@ -10,6 +10,29 @@ class homeController
     {
         $this->model = new homeModel($db);
     }
+    public function sendToFlask($userData)
+    {
+        $url = 'http://localhost:5000/endpoint';  // Updated URL to point to your Flask app
+
+        // Initialize cURL and set options for the POST request
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($userData));
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+        // Execute the POST request and retrieve the response
+        $json_response = curl_exec($ch);
+
+        // Close the cURL session
+        curl_close($ch);
+
+        $response_data = json_decode($json_response, true);
+
+        // Extract the predicted_norm_score
+        $diff = $response_data['predicted_norm_score'];
+
+        return $diff;
+    }
     public function processForm()
     {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -39,7 +62,7 @@ class homeController
                     $options[1] = $qa[0]['opb'];
                     $options[2] = $qa[0]['opc'];
                     $options[3] = $qa[0]['opd'];
-                    $qn_diff=$qa[0]['diff_score'];
+                    $qn_diff = $qa[0]['diff_score'];
 
                     include('views/Question_display.php');
                 }
@@ -51,10 +74,10 @@ class homeController
 
                 $userData = array();
 
-                $endtime = date('Y-m-d H:i:s'); 
+                $endtime = date('Y-m-d H:i:s');
                 $starttime = date('Y-m-d H:i:s', $page_load_time);
 
-                $userData['Malpractice_score']=$this->model->fetchMalpScore($starttime,$endtime);
+                $userData['Malpractice_score'] = $this->model->fetchMalpScore($starttime, $endtime);
 
                 $userData['Difficulty'] = $this->model->fetchDiff($qn_id);
 
@@ -66,7 +89,6 @@ class homeController
                 $res = $this->model->validateUserAns($qn_id, $user_ans);
                 $userData['Result'] = $res;
 
-
                 $this->model->tempScoresTable($qn_id, $res, $userData['Difficulty']);
 
                 // Update qn num
@@ -74,9 +96,16 @@ class homeController
                 $qn_num++;
 
                 // fetch the next qn
-                $qa = $this->model->fetchQuestion($qn_num,$userData);
-                $diff=$qa[0];
-                $qa=$qa[1];
+                // $qa = $this->model->fetchQuestion($qn_num, $userData);
+                // $diff = $qa[0];
+                // $qa = $qa[1];
+                if($qn_num<=5){
+                $diff = $this->sendToFlask($userData);
+                $qa = $this->model->fetchQnfromDiff($diff);
+                } else{
+                    $qa=null;
+                }
+
                 // Update Percentile
                 $this->model->updatePerc($qn_id, $res);
                 if ($qa == null) {
@@ -95,7 +124,7 @@ class homeController
                     $options[1] = $qa[0]['opb'];
                     $options[2] = $qa[0]['opc'];
                     $options[3] = $qa[0]['opd'];
-                    $qn_diff=$qa[0]['diff_score'];
+                    $qn_diff = $qa[0]['diff_score'];
 
                     include('views/Question_display.php');
                 }

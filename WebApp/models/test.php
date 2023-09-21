@@ -1,34 +1,27 @@
 <?php
-$input_data = [40, 0, 15, 1];  // Replace with your actual input data
+$postData = array(
+    'Malpractice' => 10,
+    'Time' => 30,
+    'Result' => 1,
+    'Difficulty' => 60
+);
+$url = 'http://localhost:5000/endpoint';  // Updated URL to point to your Flask app
 
-// Encode input data to JSON
-$input_json = json_encode($input_data);
+// Initialize cURL and set options for the POST request
+$ch = curl_init($url);
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($postData));
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
-// Call the Python script to make predictions
-// Call the Python script to make predictions and capture the error
-$command = 'python predict.py ' . escapeshellarg($input_json) . ' 2>&1';
-exec($command, $output, $return_code);
+// Execute the POST request and retrieve the response
+$response = curl_exec($ch);
 
-// Check if an error occurred
-if ($return_code !== 0) {
-    echo "An error occurred while executing the Python script:<br>";
-    echo "Error code: $return_code<br>";
-    echo "Error message:<br>";
-    foreach ($output as $line) {
-        echo htmlspecialchars($line) . "<br>";
-    }
-} else {
-    // Check if there's a prediction result
-    $result = end($output);  // Get the last line of output
-    $prediction_result = json_decode($result, true);
+// Close the cURL session
+curl_close($ch);
 
-    if (isset($prediction_result['predicted_norm_score'])) {
-        echo "Predicted Normalized Score: " . $prediction_result['predicted_norm_score'];
-    } else {
-        echo "An error occurred during prediction:<br>";
-        echo nl2br(htmlspecialchars($result)); // Display error message
-    }
-}
-
+// Print the response from the Flask app
+$responseData = json_decode($response, true);
+echo 'Response from Flask: ' . $responseData['result'] . "\n";
+echo 'Acknowledgment: ' . $responseData['acknowledgment'];
 
 ?>
