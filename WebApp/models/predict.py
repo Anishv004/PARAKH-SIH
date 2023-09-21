@@ -1,25 +1,40 @@
+#!usr/bin/env python3.8
+import numpy as np
 import joblib
 import sys
 import json
 
-# Load the model
-model = joblib.load('difficulty_prediction_model.pkl')
+def predict(input_data):
+    try:
+        # Load the model and scaler
+        model = joblib.load('difficulty_prediction_model.pkl')
+        scaler = joblib.load('min_max_scaler.pkl')
 
-# Function to predict using the model
-def predict(data):
-    # Assuming 'data' is a dictionary where keys are the feature names and values are the feature values
-    # Extract feature values and convert them to a list
-    feature_values = [data[key] for key in data]
-    
-    # Make a prediction
-    prediction = model.predict([feature_values])
-    return prediction[0]
+        # Convert the input data from a JSON string to a Python list
+        input_data = json.loads(input_data)
+
+        # Convert the input data to a numpy array
+        input_data = np.array([input_data])
+
+        # Scale the input data using the loaded scaler
+        scaled_input = scaler.transform(input_data)
+
+        # Predict using the loaded model
+        predicted_norm_score = model.predict(scaled_input)
+
+        # Return the prediction as a JSON object
+        return json.dumps({'predicted_norm_score': predicted_norm_score[0]})
+    except Exception as e:
+        # Print the exception message to stderr
+        print(str(e), file=sys.stderr)
+        sys.exit(1)
 
 if __name__ == "__main__":
-    # Get input data from PHP (passed via command-line arguments as JSON)
-    input_data_json = sys.argv[1]
-    input_data = json.loads(input_data_json)
-    
-    # Make a prediction
-    result = predict(input_data)
-    print(result)  # Send the prediction result back to PHP
+    # Retrieve the input data from the command line
+    input_data = sys.argv[1]
+
+    # Predict using the input data
+    prediction_result = predict(input_data)
+
+    # Print the prediction result
+    print(prediction_result)

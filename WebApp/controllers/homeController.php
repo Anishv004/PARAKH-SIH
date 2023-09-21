@@ -39,6 +39,7 @@ class homeController
                     $options[1] = $qa[0]['opb'];
                     $options[2] = $qa[0]['opc'];
                     $options[3] = $qa[0]['opd'];
+                    $qn_diff=$qa[0]['diff_score'];
 
                     include('views/Question_display.php');
                 }
@@ -50,8 +51,8 @@ class homeController
 
                 $userData = array();
 
-                $starttime = date('Y-m-d H:i:s'); //Temporarily
-                $endtime = date('Y-m-d H:i:s', $page_load_time);
+                $endtime = date('Y-m-d H:i:s'); 
+                $starttime = date('Y-m-d H:i:s', $page_load_time);
 
                 $userData['Malpractice_score']=$this->model->fetchMalpScore($starttime,$endtime);
 
@@ -65,8 +66,6 @@ class homeController
                 $res = $this->model->validateUserAns($qn_id, $user_ans);
                 $userData['Result'] = $res;
 
-                // Update Percentile
-                $this->model->updatePerc($qn_id, $res);
 
                 $this->model->tempScoresTable($qn_id, $res, $userData['Difficulty']);
 
@@ -76,6 +75,10 @@ class homeController
 
                 // fetch the next qn
                 $qa = $this->model->fetchQuestion($qn_num,$userData);
+                $diff=$qa[0];
+                $qa=$qa[1];
+                // Update Percentile
+                $this->model->updatePerc($qn_id, $res);
                 if ($qa == null) {
                     // Calculate total result and average difficulty
                     $result = $this->model->getScoreAndAverage();
@@ -92,6 +95,7 @@ class homeController
                     $options[1] = $qa[0]['opb'];
                     $options[2] = $qa[0]['opc'];
                     $options[3] = $qa[0]['opd'];
+                    $qn_diff=$qa[0]['diff_score'];
 
                     include('views/Question_display.php');
                 }

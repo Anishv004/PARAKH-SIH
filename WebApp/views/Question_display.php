@@ -9,11 +9,15 @@
 
 <body>
     <div>
+        <?php if(!empty($diff)){
+            echo "Prediction: ".$diff;
+        } ?><br>
         <?php if(isset($userData) && !empty($userData)){
-            print_r($userData);
+            echo "Prev Qn Stat: ";print_r($userData);
             }else{
                 echo '';
-            } ?>
+            } ?><br>
+            <?php echo "Current Difficulty : ".$qn_diff; ?>
         <form action="router.php" method="post">
             <p><?php echo $question; ?></p>
             <?php

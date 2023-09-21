@@ -11,16 +11,22 @@ class homeModel
   {
     try {
       if (($handle = fopen($csvFile, "r")) !== false) {
-        $stmt = $this->db->prepare("INSERT IGNORE INTO Qn_bank (question,exp,cop,opa,opb,opc,opd,subject_name,id,diff_score,correct,total) VALUES (?,?, ?, ?, ?, ?, ?, ?, ?,?,?,?)");
+        $stmt = $this->db->prepare("INSERT IGNORE INTO Qn_bank (question,exp,cop,opa,opb,opc,opd,subject_name,id,correct,total,diff_score) VALUES (?,?, ?, ?, ?, ?, ?, ?, ?,?,?,?)");
         $firstRow = true;
 
-        $zero = 0;
+        $count = 0;
         while (($data = fgetcsv($handle, 9999, ",")) !== false) {
           if ($firstRow) {
             $firstRow = false;
             continue;
           }
-          $diff = (rand(3500, 7500) / 100);
+          if ($count > 50) {
+            break;
+          }
+          $r1 = rand(35, 60);
+          $r2 = rand($r1, 75);
+
+          $diff = (1 - (float)$r1 / $r2) * 100;
 
           // Bind parameters and execute the prepared statement
           $stmt->bindParam(1, $data[0]);
@@ -32,9 +38,9 @@ class homeModel
           $stmt->bindParam(7, $data[6]);
           $stmt->bindParam(8, $data[8]);
           $stmt->bindParam(9, $data[9]);
-          $stmt->bindParam(10, $diff);
-          $stmt->bindParam(11, $zero);
-          $stmt->bindParam(12, $zero);
+          $stmt->bindParam(10, $r1);
+          $stmt->bindParam(11, $r2);
+          $stmt->bindParam(12, $diff);
 
           $stmt->execute();
 
@@ -43,6 +49,7 @@ class homeModel
             $errorInfo = $stmt->errorInfo();
             echo "Error inserting data: " . $errorInfo[2];
           }
+          $count++;
         }
         fclose($handle);
       } else {
@@ -73,35 +80,52 @@ class homeModel
     $temp->execute();
     $prev_details = $temp->fetchall(PDO::FETCH_ASSOC);
 
-    if(empty($prev_details)){
-      $diff=50.0;
-    } else{
+    if (empty($prev_details)) {
+      $diff = 50.0;
+    } else {
       $diff = $prev_details[0]['average_difficulty'];
     }
     $qa = $this->fetchQnfromDiff($diff);
 
     return $qa;
   }
+  public function dummy($userData)
+  {
+    $input_data['Difficulty'] = $userData['Difficulty'];
+    $input_data['Malpractice_score'] = $userData['Malpractice_score'];
+    $input_data['Time_Spent'] = $userData['Time_Spent'];
+    $input_data['Result'] = $userData['Result'];
+
+    $input_data_json = json_encode($input_data);
+
+    $command = 'python predict.py \'' . $input_data_json . '\'';
+    $diff = exec($command);
+    return $diff;
+  }
 
   public function fetchQuestion($qn_num, $userData)
   {
-    if ($qn_num < 5) {
-      // Prepare input data for prediction (as an associative array)
-      // $input_data = ['feature1' => 0.2, 'feature2' => 0.3, 'feature3' => 0.5, 'feature4' => 1]; 
-      $input_data['Difficulty']=$userData['Difficulty']/100.0;
-      $input_data['Malpractice_score']=$userData['Malpractice_score']/100.0;
-      $input_data['Time_Spent']=$userData['Time_Spent']/100.0;
-      $input_data['Result']=$userData['Result'];
+    if ($qn_num <= 5) {
+      $input_data = array();
+      array_push($input_data, $userData['Difficulty']);
+      array_push($input_data, $userData['Malpractice_score']);
+      array_push($input_data, $userData['Time_Spent']);
+      array_push($input_data, $userData['Result']);
 
-      
       $input_data_json = json_encode($input_data);
 
       $command = 'python predict.py \'' . $input_data_json . '\'';
       $diff = exec($command);
+      if ($diff == null) {
+        $diff = 50.0;
+      }
+      $outp = array();
+      array_push($outp, $diff);
 
       $qa = $this->fetchQnfromDiff($diff);
+      array_push($outp, $qa);
 
-      return $qa;
+      return $outp;
     }
     return null;
   }
@@ -169,9 +193,9 @@ class homeModel
   {
     if ($res == 1) {
       $query = "UPDATE Qn_bank SET correct=correct+1, total=total+1,
-      diff_score=(1-correct/total)*100 WHERE id=:qnid";
+      diff_score=(1.0-(correct/total))*100.0 WHERE id=:qnid";
     } else {
-      $query = "UPDATE Qn_bank SET total=total+1, diff_score=(1-correct/total)*100
+      $query = "UPDATE Qn_bank SET total=total+1, diff_score=(1.0-(correct/total))*100.0
       WHERE id=:qnid";
     }
     $temp = $this->db->prepare($query);
